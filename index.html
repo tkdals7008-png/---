@@ -3,61 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>모바일 교육 서명 시스템</title>
+    <title>사내 교육 전자 서명</title>
     <style>
-        body {
-            font-family: 'Malgun Gothic', sans-serif;
-            padding: 20px;
-            text-align: center;
-            background-color: #f4f4f9;
-        }
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        input[type="text"] {
-            width: 80%;
-            padding: 10px;
-            margin: 10px 0 20px 0;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        /* 서명 패드: 터치할 때 화면이 스크롤되지 않도록 touch-action: none 적용 */
-        canvas {
-            border: 2px dashed #0056b3;
-            border-radius: 5px;
-            background-color: #fafafa;
-            touch-action: none; 
-            margin-bottom: 15px;
-        }
-        .btn {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; text-align: center; background-color: #f4f4f9; }
+        .container { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+        input[type="text"] { width: 90%; padding: 12px; margin: 10px 0 20px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+        canvas { border: 2px dashed #0056b3; border-radius: 5px; background-color: #fafafa; touch-action: none; margin-bottom: 15px; }
+        .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; width: 45%; }
         .btn-clear { background-color: #ff4d4d; color: white; }
         .btn-submit { background-color: #4CAF50; color: white; }
+        .footer-text { color: gray; font-size: 12px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>안전/품질 교육 서명</h2>
-    <p>아래에 본인 이름을 입력하고 서명해주세요.</p>
+    <h2>교육 참석 확인 서명</h2>
+    <p>본인 이름을 입력하고 아래 칸에 서명해주세요.</p>
 
-    <input type="text" id="employeeName" placeholder="홍길동 (이름을 입력하세요)">
+    <input type="text" id="employeeName" placeholder="성함 입력">
     
-    <canvas id="sigCanvas" width="300" height="150"></canvas>
+    <canvas id="sigCanvas" width="300" height="180"></canvas>
     <br>
     
-    <button class="btn btn-clear" id="clearBtn">서명 지우기</button>
+    <button class="btn btn-clear" id="clearBtn">지우기</button>
     <button class="btn btn-submit" id="submitBtn">제출하기</button>
+
+    <p class="footer-text">※ 본 시스템은 사내 교육 증빙용으로만 사용됩니다.</p>
 </div>
 
 <script>
@@ -65,73 +37,71 @@
     const ctx = canvas.getContext('2d');
     let isDrawing = false;
 
-    // 터치 및 마우스 이벤트 설정
-    const startDrawing = (e) => {
-        isDrawing = true;
-        draw(e);
-    };
-
-    const stopDrawing = () => {
-        isDrawing = false;
-        ctx.beginPath();
+    // 터치/마우스 드로잉 설정
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
     };
 
     const draw = (e) => {
         if (!isDrawing) return;
-        e.preventDefault(); // 기본 터치 동작(스크롤 등) 방지
-        
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#000';
-
-        // 마우스와 터치 이벤트 좌표 호환 처리
-        const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-        const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-        
-        const rect = canvas.getBoundingClientRect();
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-
-        ctx.lineTo(x, y);
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(x, y);
+        ctx.moveTo(pos.x, pos.y);
     };
 
-    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousedown', (e) => { isDrawing = true; ctx.lineWidth = 3; ctx.lineCap = 'round'; draw(e); });
     canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-
-    canvas.addEventListener('touchstart', startDrawing, {passive: false});
+    window.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
+    canvas.addEventListener('touchstart', (e) => { isDrawing = true; ctx.lineWidth = 3; ctx.lineCap = 'round'; draw(e); }, {passive: false});
     canvas.addEventListener('touchmove', draw, {passive: false});
-    canvas.addEventListener('touchend', stopDrawing);
+    window.addEventListener('touchend', () => { isDrawing = false; ctx.beginPath(); });
 
-    // 지우기 버튼 동작
     document.getElementById('clearBtn').addEventListener('click', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
 
-    // 제출 버튼 동작 (시간 기록 포함)
     document.getElementById('submitBtn').addEventListener('click', () => {
         const name = document.getElementById('employeeName').value;
-        if (!name) {
-            alert('이름을 입력해주세요!');
-            return;
-        }
+        if (!name) { alert('이름을 입력해주세요!'); return; }
 
-        // 서명 이미지 데이터 추출 (Base64 형식)
         const dataURL = canvas.toDataURL('image/png');
-        
-        // 제출 시간 자동 생성 (요청사항 3번)
         const timestamp = new Date().toLocaleString('ko-KR');
+        const submitBtn = document.getElementById('submitBtn');
 
-        console.log("제출자 이름:", name);
-        console.log("제출 시간:", timestamp);
-        console.log("서명 데이터:", dataURL);
-        
-        alert(`${name}님의 서명이 제출되었습니다.\n(${timestamp})`);
-        // 여기서 실제로 서버(Google Sheets 등)로 데이터를 보내는 코드가 추가되어야 합니다.
+        submitBtn.innerText = '제출 중...';
+        submitBtn.disabled = true;
+
+        // 주신 구글 웹 앱 주소 적용
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLk1EeFSCQyTBzooKtG5K3_mEGJeGs-MHTFOfFgcm8POBRrxaDXXqrLGE_sI6iR1pgoQ/exec';
+
+        fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // CORS 문제 방지
+            body: JSON.stringify({
+                timestamp: timestamp,
+                name: name,
+                signature: dataURL
+            })
+        })
+        .then(() => {
+            alert(`${name}님, 서명이 정상적으로 제출되었습니다.`);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('employeeName').value = '';
+        })
+        .catch(err => {
+            alert('오류가 발생했습니다. 다시 시도해주세요.');
+            console.error(err);
+        })
+        .finally(() => {
+            submitBtn.innerText = '제출하기';
+            submitBtn.disabled = false;
+        });
     });
 </script>
 
