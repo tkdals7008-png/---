@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>참석자 명단 서명</title>
+    <title>교육 참석 서명</title>
     <style>
         body { font-family: sans-serif; padding: 20px; text-align: center; background-color: #f4f4f9; }
         .container { background-color: white; padding: 20px; border-radius: 10px; max-width: 400px; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
@@ -17,12 +17,17 @@
 <body>
 
 <div class="container">
-    <h2>조회 참석 서명</h2>
+    <h2>교육 참석 서명</h2>
     
     <div style="text-align: left; padding-left: 5%;">
+        <label>교육명</label><br>
+        <input type="text" id="trainingName" placeholder="예: 4월 정기 안전교육">
+        <br>
+        
         <label>부서명</label><br>
         <input type="text" id="department" placeholder="예: 조립팀">
         <br>
+        
         <label>성명</label><br>
         <input type="text" id="employeeName" placeholder="성함 입력">
     </div>
@@ -40,7 +45,6 @@
     const ctx = canvas.getContext('2d');
     let isDrawing = false;
 
-    // 캔버스 크기 조정 (화면에 맞게)
     function resizeCanvas() {
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width;
@@ -78,22 +82,29 @@
     });
 
     document.getElementById('submitBtn').addEventListener('click', () => {
+        // 교육명, 부서, 이름 가져오기
+        const training = document.getElementById('trainingName').value;
         const dept = document.getElementById('department').value;
         const name = document.getElementById('employeeName').value;
-        if (!dept || !name) { alert('부서명과 성명을 모두 입력해주세요!'); return; }
+        
+        if (!training || !dept || !name) { 
+            alert('교육명, 부서명, 성명을 모두 입력해주세요!'); 
+            return; 
+        }
 
         const dataURL = canvas.toDataURL('image/png');
         const submitBtn = document.getElementById('submitBtn');
         submitBtn.innerText = '처리 중...';
         submitBtn.disabled = true;
 
-        // ★ 알려주신 최신 구글 서버 주소가 적용된 부분입니다! ★
+        // ★ 사용 중인 구글 앱스 스크립트 웹 앱 주소 ★
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_nToBKByiLzffBnDoLKmjbadbAHv8dCEtxOIm1YbaX3jE7QvHxk1zjIuXZin1cvAFyA/exec';
 
         fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             body: JSON.stringify({
+                trainingName: training,
                 department: dept,
                 name: name,
                 signature: dataURL
@@ -101,13 +112,20 @@
         })
         .then(() => {
             alert(`${name}님, 서명이 완료되었습니다.`);
-            // 성공 후 입력창 초기화
+            
+            // 성공 시 초기화 작업
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             document.getElementById('department').value = '';
             document.getElementById('employeeName').value = '';
+            
+            // 💡 실무 팁: '교육명'은 지우지 않고 그대로 둡니다.
+            // 그래야 다음 사람이 핸드폰을 넘겨받거나 다시 접속했을 때 교육명을 또 칠 필요가 없습니다.
         })
         .catch(() => alert('오류가 발생했습니다. 인터넷 연결을 확인해주세요.'))
-        .finally(() => { submitBtn.innerText = '제출하기'; submitBtn.disabled = false; });
+        .finally(() => { 
+            submitBtn.innerText = '제출하기'; 
+            submitBtn.disabled = false; 
+        });
     });
 </script>
 </body>
