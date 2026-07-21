@@ -24,6 +24,7 @@
     .btn-blue { background: #2878d0; }
     .btn-gray { background: #66717e; }
     .btn-dark { background: #323943; }
+    .btn-close { width: 90px; min-height: 38px; margin: 22px auto 0; padding: 8px; background: #7a838e; font-size: 14px; display: block; }
     .panel { padding: 14px; border: 1px solid #dce1e7; border-radius: 9px; background: #f8fafc; }
     .result { margin-top: 18px; }
     .training-title { margin: 0 0 8px; color: #185b9d; font-size: 19px; font-weight: 800; }
@@ -61,6 +62,7 @@
     <button type="button" class="btn-red" id="clearBtn">다시 쓰기</button>
     <button type="button" class="btn-green" id="submitBtn">제출하기</button>
   </div>
+  <button type="button" class="btn-close" id="workerCloseBtn">종료</button>
 </main>
 
 <main id="viewerView" class="container" hidden>
@@ -94,12 +96,6 @@
       <button type="button" class="btn-dark" id="testBtn">서명 화면 확인</button>
     </div>
 
-    <div class="divider"></div>
-
-    <button type="button" class="btn-red" id="closeTrainingBtn">교육 종료 · PDF 이메일 발송</button>
-    <div class="notice">
-      교육 종료를 누르면 현재까지 제출된 서명으로 PDF가 생성되어 관리자 이메일로 발송됩니다.
-    </div>
   </section>
 </main>
 
@@ -233,6 +229,44 @@
         button.textContent = '제출하기';
       });
     });
+
+    document.getElementById('workerCloseBtn').addEventListener('click', () => {
+      const training = trainingInput.value.trim();
+      if (!training || !fixedDepartment) {
+        alert('올바른 교육 링크로 접속해 주세요.');
+        return;
+      }
+
+      const pin = prompt('조회자 비밀번호를 입력해 주세요.');
+      if (pin === null) return;
+
+      const confirmed = confirm(
+        '[' + training + ']\n\n' +
+        '현재까지 제출된 서명으로 교육을 종료하고\nPDF를 관리자 이메일로 발송하시겠습니까?'
+      );
+      if (!confirmed) return;
+
+      const button = document.getElementById('workerCloseBtn');
+      button.disabled = true;
+      button.textContent = '처리 중...';
+
+      fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({
+          action: 'makePDF',
+          trainingName: training,
+          closingPin: pin
+        })
+      }).then(() => {
+        alert('종료 요청을 전송했습니다. 잠시 후 관리자 이메일을 확인해 주세요.');
+      }).catch(() => {
+        alert('종료 요청을 전송하지 못했습니다. 인터넷 연결을 확인해 주세요.');
+      }).finally(() => {
+        button.disabled = false;
+        button.textContent = '종료';
+      });
+    });
   }
 
   function initializeViewer() {
@@ -243,6 +277,14 @@
 
     let currentTrainingName = '';
     let currentWorkerLink = '';
+
+    function showCurrentEducation(trainingName, workerLink) {
+      currentTrainingName = trainingName;
+      currentWorkerLink = workerLink;
+      document.getElementById('generatedTrainingName').textContent = currentTrainingName;
+      document.getElementById('generatedLink').textContent = currentWorkerLink;
+      document.getElementById('linkResult').hidden = false;
+    }
 
     function makeEducationData() {
       const dateValue = dateInput.value;
@@ -257,9 +299,7 @@
       const baseUrl = window.location.origin + window.location.pathname;
       currentWorkerLink = baseUrl + '?edu=' + encodeURIComponent(currentTrainingName);
 
-      document.getElementById('generatedTrainingName').textContent = currentTrainingName;
-      document.getElementById('generatedLink').textContent = currentWorkerLink;
-      document.getElementById('linkResult').hidden = false;
+      showCurrentEducation(currentTrainingName, currentWorkerLink);
       return true;
     }
 
@@ -299,39 +339,6 @@
       window.open(currentWorkerLink, '_blank', 'noopener');
     });
 
-    document.getElementById('closeTrainingBtn').addEventListener('click', () => {
-      if (!currentTrainingName && !makeEducationData()) return;
-
-      const pin = prompt('조회자 종료 비밀번호를 입력해 주세요.');
-      if (pin === null) return;
-
-      const confirmed = confirm(
-        '[' + currentTrainingName + ']\n\n' +
-        '교육을 종료하고 현재 서명 이력을\n관리자 이메일로 발송하시겠습니까?'
-      );
-      if (!confirmed) return;
-
-      const button = document.getElementById('closeTrainingBtn');
-      button.disabled = true;
-      button.textContent = 'PDF 생성 요청 중...';
-
-      fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify({
-          action: 'makePDF',
-          trainingName: currentTrainingName,
-          closingPin: pin
-        })
-      }).then(() => {
-        alert('교육 종료 요청을 전송했습니다. 잠시 후 관리자 이메일을 확인해 주세요.');
-      }).catch(() => {
-        alert('종료 요청을 전송하지 못했습니다. 인터넷 연결을 확인해 주세요.');
-      }).finally(() => {
-        button.disabled = false;
-        button.textContent = '교육 종료 · PDF 이메일 발송';
-      });
-    });
   }
 
   async function copyToClipboard(text) {
