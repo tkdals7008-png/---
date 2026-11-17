@@ -7,6 +7,7 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 20px; font-family: Arial, "Malgun Gothic", sans-serif; background: #f4f6f9; color: #20242a; }
+    body.signing-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
     .container { max-width: 430px; margin: 0 auto; padding: 22px; background: #fff; border-radius: 14px; box-shadow: 0 5px 18px rgba(0,0,0,.09); }
     h2 { margin: 0 0 8px; text-align: center; }
     .description { margin: 0 0 20px; color: #69727d; font-size: 14px; text-align: center; line-height: 1.5; }
@@ -177,6 +178,20 @@
     const ctx = canvas.getContext('2d');
     let drawing = false;
     let hasSignature = false;
+    let lockedScrollY = 0;
+    let resizeTimer = null;
+
+    function lockPageForSignature() {
+      lockedScrollY = window.scrollY || window.pageYOffset || 0;
+      document.body.style.top = '-' + lockedScrollY + 'px';
+      document.body.classList.add('signing-lock');
+    }
+
+    function unlockPageAfterSignature() {
+      document.body.classList.remove('signing-lock');
+      document.body.style.top = '';
+      window.scrollTo(0, lockedScrollY);
+    }
 
     function resizeCanvas() {
       const width = canvas.clientWidth;
@@ -220,6 +235,10 @@
     canvas.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+      }
+      lockPageForSignature();
       drawing = true;
       hasSignature = true;
       canvas.setPointerCapture(event.pointerId);
@@ -244,13 +263,23 @@
       if (canvas.hasPointerCapture && canvas.hasPointerCapture(event.pointerId)) {
         canvas.releasePointerCapture(event.pointerId);
       }
+      unlockPageAfterSignature();
     }
 
     canvas.addEventListener('pointerup', finishDrawing, { passive: false });
     canvas.addEventListener('pointercancel', finishDrawing, { passive: false });
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
-    window.addEventListener('resize', resizeCanvas);
+    // 모바일 주소창이 움직여도 서명 중에는 캔버스 크기와 위치를 바꾸지 않습니다.
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (!drawing) resizeCanvas();
+      }, 300);
+    });
+    document.addEventListener('touchmove', (event) => {
+      if (drawing) event.preventDefault();
+    }, { passive: false, capture: true });
     resizeCanvas();
 
     document.getElementById('clearBtn').addEventListener('click', () => {
