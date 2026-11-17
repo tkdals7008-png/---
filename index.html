@@ -93,6 +93,8 @@
   <div class="submit-only">
     <button type="button" class="btn-green" id="submitBtn">제출하기</button>
   </div>
+  <button type="button" class="btn-close" id="workerCloseBtn">조회 종료</button>
+  <div id="workerCloseStatus" class="close-status" hidden></div>
 </main>
 
 <main id="viewerView" class="container" hidden>
@@ -347,6 +349,47 @@
         button.disabled = false;
         button.textContent = '제출하기';
       });
+    });
+
+    document.getElementById('workerCloseBtn').addEventListener('click', async () => {
+      const training = trainingInput.value.trim();
+      if (!training || !fixedDepartment) {
+        alert('올바른 교육 링크로 접속해 주세요.');
+        return;
+      }
+      const pin = prompt('조회자 비밀번호를 입력해 주세요.');
+      if (pin === null) return;
+      if (!confirm('[' + training + ']\\n\\n현재까지 제출된 서명으로 조회를 종료하고 PDF를 관리자 이메일로 발송하시겠습니까?')) return;
+
+      const button = document.getElementById('workerCloseBtn');
+      const statusBox = document.getElementById('workerCloseStatus');
+      const requestId = 'close_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+      button.disabled = true;
+      button.textContent = '처리 중...';
+      showCloseStatus(statusBox, 'pending', 'PDF 생성과 메일 발송 결과를 확인하고 있습니다.');
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST', mode: 'no-cors',
+          body: JSON.stringify({ action: 'makePDF', trainingName: training, closingPin: pin, requestId: requestId })
+        });
+        const result = await waitForCloseResult(requestId);
+        if (result.result === 'success') {
+          const message = 'PDF 생성과 메일 발송이 완료됐습니다.\\n참석 인원: ' + result.count + '명';
+          showCloseStatus(statusBox, 'success', message.replace('\\n', ' '));
+          alert(message);
+        } else {
+          const errorMessage = result.message || '서버에서 종료 요청을 처리하지 못했습니다.';
+          showCloseStatus(statusBox, 'error', '발송 실패: ' + errorMessage);
+          alert('발송에 실패했습니다.\\n' + errorMessage);
+        }
+      } catch (error) {
+        showCloseStatus(statusBox, 'error', '결과를 확인하지 못했습니다. 인터넷 연결 후 다시 시도해 주세요.');
+        alert('종료 처리 결과를 확인하지 못했습니다.\\n인터넷 연결 후 다시 시도해 주세요.');
+      } finally {
+        button.disabled = false;
+        button.textContent = '조회 종료';
+      }
     });
 
   }
