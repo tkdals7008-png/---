@@ -46,6 +46,13 @@
     .ppe-monthly { margin-top: 14px; padding-top: 13px; border-top: 1px solid #cbd8e5; }
     .ppe-note { margin: 9px 0 0; color: #596b7c; font-size: 12px; line-height: 1.45; }
     .signature-confirm { margin: 0 0 7px; color: #46515c; font-size: 12px; line-height: 1.5; }
+    .signature-status { margin-top: 8px; padding: 9px; border-radius: 7px; background: #f0f2f5; color: #66717e; font-size: 13px; text-align: center; }
+    .signature-status.done { background: #e8f6ed; color: #176b37; font-weight: 700; }
+    .signature-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.72); touch-action: none; overscroll-behavior: none; }
+    .signature-modal-card { width: min(100%, 440px); padding: 18px; border-radius: 14px; background: #fff; box-shadow: 0 10px 35px rgba(0,0,0,.35); }
+    .signature-modal-card h3 { margin: 0 0 7px; text-align: center; }
+    .signature-modal-card p { margin: 0 0 12px; color: #59636e; font-size: 13px; text-align: center; }
+    .signature-modal canvas { height: 220px; }
     .check-row { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #d4dbe3; border-radius: 7px; background: #fff; font-size: 14px; }
     .check-row input { width: auto; }
     [hidden] { display: none !important; }
@@ -84,15 +91,27 @@
   <div class="field">
     <label>서명</label>
     <p class="signature-confirm">본인은 금일 조회 내용과 안전보호구 지급 여부를 확인하였으며, 기재한 내용이 사실과 같음을 확인하고 서명합니다.</p>
-    <canvas id="sigCanvas"></canvas>
+    <button type="button" class="btn-dark" id="openSignatureBtn">서명하기</button>
+    <div id="signatureStatus" class="signature-status">서명 전</div>
   </div>
   <div class="button-row">
-    <button type="button" class="btn-red" id="clearBtn">다시 쓰기</button>
     <button type="button" class="btn-green" id="submitBtn">제출하기</button>
   </div>
   <button type="button" class="btn-close" id="workerCloseBtn">종료</button>
   <div id="closeStatus" class="close-status" hidden></div>
 </main>
+
+<div id="signatureModal" class="signature-modal" hidden>
+  <div class="signature-modal-card" role="dialog" aria-modal="true" aria-labelledby="signatureModalTitle">
+    <h3 id="signatureModalTitle">서명 작성</h3>
+    <p>아래 흰색 영역에 서명한 뒤 완료를 눌러주세요.</p>
+    <canvas id="sigCanvas"></canvas>
+    <div class="button-row">
+      <button type="button" class="btn-red" id="clearBtn">다시 쓰기</button>
+      <button type="button" class="btn-green" id="completeSignatureBtn">서명 완료</button>
+    </div>
+  </div>
+</div>
 
 <main id="viewerView" class="container" hidden>
   <h2>조회자 교육 관리</h2>
@@ -176,6 +195,10 @@
 
     const canvas = document.getElementById('sigCanvas');
     const ctx = canvas.getContext('2d');
+    const signatureModal = document.getElementById('signatureModal');
+    const signatureStatus = document.getElementById('signatureStatus');
+    const openSignatureButton = document.getElementById('openSignatureBtn');
+    const completeSignatureButton = document.getElementById('completeSignatureBtn');
     let drawing = false;
     let hasSignature = false;
     let resizeTimer = null;
@@ -183,6 +206,7 @@
     function resizeCanvas() {
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
+      if (!width || !height) return;
       const ratio = Math.max(window.devicePixelRatio || 1, 1);
       const nextWidth = Math.round(width * ratio);
       const nextHeight = Math.round(height * ratio);
@@ -259,7 +283,7 @@
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        if (!drawing) resizeCanvas();
+        if (!drawing && !signatureModal.hidden) resizeCanvas();
       }, 300);
     });
     // 빠른 손동작이 브라우저 스와이프·주소창 이동으로 전달되지 않도록
@@ -279,12 +303,40 @@
         event.stopPropagation();
       }
     }, { passive: false, capture: true });
-    resizeCanvas();
-
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    function clearSignature() {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
       hasSignature = false;
+      signatureStatus.textContent = '서명 전';
+      signatureStatus.classList.remove('done');
+    }
+
+    openSignatureButton.addEventListener('click', () => {
+      if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+      }
+      signatureModal.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => resizeCanvas());
     });
+
+    completeSignatureButton.addEventListener('click', () => {
+      if (!hasSignature) {
+        alert('서명란에 서명해 주세요.');
+        return;
+      }
+      signatureModal.hidden = true;
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      signatureStatus.textContent = '서명 완료';
+      signatureStatus.classList.add('done');
+      openSignatureButton.textContent = '서명 수정하기';
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', clearSignature);
 
     document.getElementById('submitBtn').addEventListener('click', () => {
       const training = trainingInput.value.trim();
@@ -330,8 +382,8 @@
         alert(name + '님, 서명을 전송했습니다.');
         document.getElementById('employeeName').value = '';
         document.querySelectorAll('input[name="gloveStatus"], input[name="earplugStatus"]').forEach((input) => { input.checked = false; });
-        ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-        hasSignature = false;
+        clearSignature();
+        openSignatureButton.textContent = '서명하기';
       }).catch(() => {
         alert('전송하지 못했습니다. 인터넷 연결을 확인해 주세요.');
       }).finally(() => {
