@@ -14,7 +14,7 @@
     label { display: block; margin-bottom: 6px; font-weight: 700; }
     input, select { width: 100%; padding: 12px; border: 1px solid #cbd2da; border-radius: 7px; background: #fff; font-size: 16px; }
     input[readonly] { background: #edf1f5; color: #3f4852; font-weight: 700; }
-    canvas { width: 100%; height: 160px; border: 2px solid #333; border-radius: 7px; background: #fff; touch-action: none; }
+    canvas { width: 100%; height: 160px; border: 2px solid #333; border-radius: 7px; background: #fff; touch-action: none; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
     .button-row { display: flex; gap: 10px; margin-top: 14px; }
     button { width: 100%; min-height: 48px; padding: 11px; border: 0; border-radius: 7px; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
     button:disabled { opacity: .55; cursor: not-allowed; }
@@ -218,22 +218,37 @@
     }
 
     canvas.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       drawing = true;
       hasSignature = true;
       canvas.setPointerCapture(event.pointerId);
       const point = pointerPosition(event);
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
-    });
+    }, { passive: false });
     canvas.addEventListener('pointermove', (event) => {
-      if (!drawing) return;
       event.preventDefault();
+      event.stopPropagation();
+      if (!drawing) return;
       const point = pointerPosition(event);
       ctx.lineTo(point.x, point.y);
       ctx.stroke();
-    });
-    canvas.addEventListener('pointerup', () => { drawing = false; ctx.beginPath(); });
-    canvas.addEventListener('pointercancel', () => { drawing = false; ctx.beginPath(); });
+    }, { passive: false });
+
+    function finishDrawing(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      drawing = false;
+      ctx.beginPath();
+      if (canvas.hasPointerCapture && canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    canvas.addEventListener('pointerup', finishDrawing, { passive: false });
+    canvas.addEventListener('pointercancel', finishDrawing, { passive: false });
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
