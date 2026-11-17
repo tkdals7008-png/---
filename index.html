@@ -6,6 +6,7 @@
   <title>교육 참석 서명</title>
   <style>
     * { box-sizing: border-box; }
+    html, body { overscroll-behavior: none; }
     body { margin: 0; padding: 20px; font-family: Arial, "Malgun Gothic", sans-serif; background: #f4f6f9; color: #20242a; }
     body.signing-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
     .container { max-width: 430px; margin: 0 auto; padding: 22px; background: #fff; border-radius: 14px; box-shadow: 0 5px 18px rgba(0,0,0,.09); }
@@ -277,8 +278,22 @@
         if (!drawing) resizeCanvas();
       }, 300);
     });
+    // 빠른 손동작이 브라우저 스와이프·주소창 이동으로 전달되지 않도록
+    // 원본 touch 이벤트를 캡처 단계에서 직접 차단합니다.
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach((eventName) => {
+      canvas.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }, { passive: false, capture: true });
+    });
+    canvas.addEventListener('dragstart', (event) => event.preventDefault());
+    canvas.addEventListener('selectstart', (event) => event.preventDefault());
+
     document.addEventListener('touchmove', (event) => {
-      if (drawing) event.preventDefault();
+      if (drawing) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     }, { passive: false, capture: true });
     resizeCanvas();
 
